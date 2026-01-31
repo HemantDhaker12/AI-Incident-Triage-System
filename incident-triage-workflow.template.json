@@ -1,0 +1,1012 @@
+{
+  "name": "incident-triage-workflow.template",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "/incident-ingest",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [0, 0],
+      "id": "5a6bc449-163f-4104-a298-fbef4ac0bec1",
+      "name": "Webhook",
+      "webhookId": "721583cd-1deb-4b9e-8a59-e05fd0caa522"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "13e7322e-13f0-469e-9c46-8550b990a703",
+              "leftValue": "={{$json.body.environment}}",
+              "rightValue": "production",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "e6bb3f76-59a1-4809-8240-4cc9b6859439",
+              "leftValue": "={{$json.body.count}}",
+              "rightValue": 5,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [208, 0],
+      "id": "a5de13c4-9867-4593-b6f4-4a450c1f80b7",
+      "name": "hard drop filter"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"decision\": \"dropped_low_signal\"\n}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [416, -96],
+      "id": "4f45dbd2-c86b-4e66-8af3-742f1c8d920c",
+      "name": "Hard Drop"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "\n{\n  \"final_decision\": \"auto_resolved_known_error\",\n  \"final_severity\": \"LOW\",\n  \"action_taken\": \"logged_only\"\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [624, 0],
+      "id": "f7b1947b-aac8-4e00-9150-2bc583eab43d",
+      "name": "Auto-Resolved Incident"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "af095728-835c-43a9-a645-85b60ffcacbb",
+              "leftValue": "={{$json.body.error_name}}",
+              "rightValue": "JWTExpired",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            },
+            {
+              "id": "4239b031-414d-46cc-bc03-f98d82d521e9",
+              "leftValue": "={{$json.body.count}}",
+              "rightValue": 50,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [416, 96],
+      "id": "0d086edf-da18-409a-b8b1-7db41ff783cb",
+      "name": "Known Error Auto-Resolve"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "db69444e-2ce9-4abe-bdb9-0da08351c489",
+              "leftValue": "={{$json.body.count}}",
+              "rightValue": 300,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [624, 192],
+      "id": "8f151f0f-4164-4a2c-9ea5-a48a6ec68672",
+      "name": " Obvious Critical Gate"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"final_severity\": \"CRITICAL\",\n  \"decision_source\": \"rule_based\",\n  \"reason\": \"Error volume exceeds critical threshold\",\n  \"action_required\": \"immediate_alert\"\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [832, 96],
+      "id": "f13a7fd1-06d1-453b-b7aa-9df05f49b3c7",
+      "name": "Critical Incident (Rule-Based)"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "groq chat completion url",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_API_KEY_HERE"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={\n  \"model\": \"groq/compound-mini\",\n  \"temperature\": 0,\n  \"messages\": [\n    {\n      \"role\": \"system\",\n      \"content\": \"You are an SRE assistant performing incident severity classification.\"\n    },\n    {\n      \"role\": \"user\",\n      \"content\": \"Classify the severity of the following incident.\\n\\nService: {{$json.body.service}}\\nError: {{$json.body.error_name}}\\nCount: {{$json.body.count}}\\nRate per minute: {{$json.body.count / $json.body.time_window_minutes}}\\nEnvironment: {{$json.body.environment}}\\n\\nRules:\\n- LOW: minor impact, no user disruption\\n- MEDIUM: partial impact, degraded experience\\n- HIGH: major impact, core functionality affected\\n\\nReturn STRICT JSON only:\\n{\\n  \\\"severity\\\": \\\"LOW | MEDIUM | HIGH\\\",\\n  \\\"confidence\\\": 0.0-1.0,\\n  \\\"reason\\\": \\\"short factual explanation\\\"\\n}\"\n    }\n  ]\n}\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [832, 288],
+      "id": "2d5afa91-86e8-4326-96ba-748b2ee8016b",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "eed8ee97-8045-4485-a42b-b818aa295561",
+              "name": "ai_raw_content",
+              "value": "={{ $json.choices[0].message.content }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1040, 288],
+      "id": "7eebb0e3-d5d0-4790-8a54-5b6403cf8d86",
+      "name": "Extract AI Content"
+    },
+    {
+      "parameters": {
+        "jsCode": "let parsed;\n\ntry {\n  parsed = JSON.parse($json.ai_raw_content);\n} catch (e) {\n  parsed = {\n    severity: \"MEDIUM\",\n    confidence: 0.5,\n    reason: \"AI output could not be parsed\"\n  };\n}\n\nreturn [{\n  severity: parsed.severity,\n  confidence: parsed.confidence,\n  reason: parsed.reason\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1248, 288],
+      "id": "58a07648-1a0d-4771-b566-051e6c0df2d1",
+      "name": "Parse AI Json"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "084f80f7-a200-408c-9957-95c5e45b53cf",
+              "leftValue": "={{$json.confidence}}",
+              "rightValue": 0.6,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1456, 288],
+      "id": "abd16bd0-712a-4c32-86cc-12b2fdfeeca0",
+      "name": "AI Confidence Guardrail"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 3
+          },
+          "conditions": [
+            {
+              "id": "385cadba-2ce0-4aac-9545-ca35c47b0022",
+              "leftValue": "={{$json.severity}}",
+              "rightValue": "LOW",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "887ce7c0-b4d0-4b1c-b336-efc2af6fc0d0",
+              "leftValue": "={{$json.severity}}",
+              "rightValue": "MEDIUM",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            },
+            {
+              "id": "22346589-069c-48ec-ae74-4ab25977cf41",
+              "leftValue": "={{$json.severity}}",
+              "rightValue": "HIGH",
+              "operator": {
+                "type": "string",
+                "operation": "notEquals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [1664, 384],
+      "id": "f23833d4-2a14-4272-9857-25ce26fee307",
+      "name": "AI Severity Validation"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "8eea15b0-a3ba-4d6c-8902-b9ccabe1c093",
+              "name": "service",
+              "value": "={{$node[\"Webhook\"].json.body.service}}",
+              "type": "string"
+            },
+            {
+              "id": "cbc5bb7a-0f31-47af-96d4-1effc62ab3b7",
+              "name": "error_name",
+              "value": "={{$node[\"Webhook\"].json.body.error_name}}",
+              "type": "string"
+            },
+            {
+              "id": "87fdb0d2-3336-4edf-804f-1b681d0d107a",
+              "name": "final_severity",
+              "value": "={{$json.final_severity ?? $json.severity}}",
+              "type": "string"
+            },
+            {
+              "id": "5958f585-d537-4307-8602-60999474454c",
+              "name": "decision_source",
+              "value": "={{$json.decision_source ?? \"ai_assisted\"}}",
+              "type": "string"
+            },
+            {
+              "id": "cd8c5481-1742-4e2b-8c1e-b366460a112d",
+              "name": "confidence",
+              "value": "={{$json.confidence ?? null}}",
+              "type": "string"
+            },
+            {
+              "id": "6c865085-a959-400b-aa78-ee90a21a70d9",
+              "name": "reason",
+              "value": "={{$json.reason}}",
+              "type": "string"
+            },
+            {
+              "id": "b1759ad1-1c9b-47d3-b712-f005c418a769",
+              "name": "timestamp",
+              "value": "={{$now}}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [1872, 288],
+      "id": "533c6d9a-2215-46ee-a28f-df43b67a9eae",
+      "name": "Final Incident Decision"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{$json.final_severity}}",
+                    "rightValue": "LOW",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "7ba5ea31-3880-4cef-b990-d38617e4ef38"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "4cbfd005-c21f-49d4-9c7e-2a998bad174d",
+                    "leftValue": "={{$json.final_severity}}",
+                    "rightValue": "MEDIUM",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "eaf8d331-1f5d-4e87-80ce-e9c41d50bd50",
+                    "leftValue": "={{$json.final_severity}}",
+                    "rightValue": "HIGH",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 3
+                },
+                "conditions": [
+                  {
+                    "id": "93ba79ee-baa7-4872-ad75-8feb1d1adf41",
+                    "leftValue": "={{$json.final_severity}}",
+                    "rightValue": "CRITICAL",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.4,
+      "position": [2080, 288],
+      "id": "11b6ae9d-e56c-493d-a341-3de8b0b128f2",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"alert_sent\": false,\n  \"action\": \"logged_only\"\n}",
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2288, 80],
+      "id": "6edea5c0-a895-4812-95e6-cec7240bfe8a",
+      "name": "Log Only"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"alert_sent\": true,\n  \"alert_type\": \"async\",\n  \"message\": \"MEDIUM severity incident detected\"\n}\n",
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2384, 224],
+      "id": "325f5808-6dcc-45e3-a3c4-0ffa2de4da85",
+      "name": "Medium Severity"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"alert_sent\": true,\n  \"alert_type\": \"immediate\",\n  \"message\": \"HIGH severity incident – immediate attention required\"\n}\n",
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2384, 400],
+      "id": "a41b2eb1-b331-45a2-86a8-88d1e56eae5d",
+      "name": "High Severity"
+    },
+    {
+      "parameters": {
+        "mode": "raw",
+        "jsonOutput": "{\n  \"alert_sent\": true,\n  \"alert_type\": \"immediate\",\n  \"escalation\": true,\n  \"message\": \"CRITICAL incident – escalation required\"\n}\n",
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2352, 624],
+      "id": "bbe968e2-bd32-4ddd-b025-531f9223b862",
+      "name": "Critical Severity"
+    },
+    {
+      "parameters": {
+        "numberInputs": 4
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [3008, 304],
+      "id": "2ef5089a-e7ca-480c-8497-26efb9da979f",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "68fa911d-c02e-4170-ae3f-e2df88d64c80",
+              "name": "action_taken",
+              "value": "logged_only",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2496, 80],
+      "id": "a537a60e-998d-465c-9bc4-b3ddd7f7ec11",
+      "name": "Action: Log Only"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "40b991c2-738e-4013-b432-0f114d0113ee",
+              "name": "action_taken",
+              "value": "medium_alert_sent",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2640, 256],
+      "id": "35cc8035-a6aa-4f33-8471-defaa9ba5218",
+      "name": "Action: Medium ALert"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "88b0d24a-20c7-4b44-a2cc-0b03a761835d",
+              "name": "action_taken",
+              "value": "high_alert_sent",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2640, 496],
+      "id": "eb2d6975-1d12-4676-846e-aa9cc9b6dd27",
+      "name": "Action: High Alert"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "052119da-8d7a-4315-b29c-06ba688a47ee",
+              "name": "action_taken",
+              "value": "critical_alert_escalated",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [2592, 720],
+      "id": "419a5761-c5ba-4c55-9e82-106f3c2dd1ad",
+      "name": "Action: Critical ALert"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "ADD_YOUR_SHEET_ID_IN_N8N",
+          "mode": "list",
+          "cachedResultName": "AI Incident Logs",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_SHEET_ID"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "timestamp": "={{$json.timestamp}}",
+            "service": "={{$json.service}}",
+            "error_name": "={{$json.error_name}}",
+            "final_severity": "={{$json.final_severity}}",
+            "decision_source": "={{$json.decision_source}}",
+            "confidence": "={{$json.confidence}}",
+            "action_taken": "={{$json.action_taken}}",
+            "reason": "={{$json.reason}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "timestamp",
+              "displayName": "timestamp",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "service",
+              "displayName": "service",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "error_name",
+              "displayName": "error_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "final_severity",
+              "displayName": "final_severity",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "decision_source",
+              "displayName": "decision_source",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "confidence",
+              "displayName": "confidence",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "action_taken",
+              "displayName": "action_taken",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [3408, 336],
+      "id": "1e461aea-b9b0-4060-962e-66b7e091d578",
+      "name": "Google Sheets logger",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "id",
+          "name": "Google Sheets account 3"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "hard drop filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "hard drop filter": {
+      "main": [
+        [
+          {
+            "node": "Hard Drop",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Known Error Auto-Resolve",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Known Error Auto-Resolve": {
+      "main": [
+        [
+          {
+            "node": "Auto-Resolved Incident",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": " Obvious Critical Gate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    " Obvious Critical Gate": {
+      "main": [
+        [
+          {
+            "node": "Critical Incident (Rule-Based)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Extract AI Content",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract AI Content": {
+      "main": [
+        [
+          {
+            "node": "Parse AI Json",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse AI Json": {
+      "main": [
+        [
+          {
+            "node": "AI Confidence Guardrail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Confidence Guardrail": {
+      "main": [
+        [],
+        [
+          {
+            "node": "AI Severity Validation",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Severity Validation": {
+      "main": [
+        [
+          {
+            "node": "Final Incident Decision",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Final Incident Decision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Final Incident Decision": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Log Only",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Medium Severity",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "High Severity",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Critical Severity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Log Only": {
+      "main": [
+        [
+          {
+            "node": "Action: Log Only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Medium Severity": {
+      "main": [
+        [
+          {
+            "node": "Action: Medium ALert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "High Severity": {
+      "main": [
+        [
+          {
+            "node": "Action: High Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Critical Severity": {
+      "main": [
+        [
+          {
+            "node": "Action: Critical ALert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Google Sheets logger",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Action: Log Only": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Action: Medium ALert": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Action: High Alert": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 2
+          }
+        ]
+      ]
+    },
+    "Action: Critical ALert": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 3
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false
+  },
+  "versionId": "202184d7-5264-4214-a692-350db83989d6",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "b061d72d45eb1a73b3dc1aeb38670a9a6f0182b35051df24d19bf86c7aeebcdb"
+  },
+  "id": "UPBCg41dCOmTCvtk",
+  "tags": []
+}
